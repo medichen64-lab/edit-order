@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MEDICHEN - Realtime Management System</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="app-container">
+        <aside class="sidebar">
+            <div class="sidebar-brand">
+                <img src="logo.png" alt="MEDICHEN Logo" style="width: 75px; height: auto; border-radius: 10px; margin-bottom: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                <h2>MEDICHEN</h2>
+                <span>Medical Warehouse</span>
+            </div>
+            <nav class="sidebar-menu">
+                <button class="menu-item active" onclick="switchTab('dashboard')">📊 แดชบอร์ด</button>
+                <button class="menu-item" onclick="switchTab('line')" style="display: flex; justify-content: space-between; align-items: center;">
+                    <span>📱 ออเดอร์จาก LINE</span>
+                    <span id="line-badge" class="noti-badge" style="display: none;">0</span>
+                </button>
+                <button class="menu-item" onclick="switchTab('stock')">📦 คลังสินค้า</button>
+                <button class="menu-item" onclick="switchTab('purchase')">🛒 รายการสั่งซื้อ</button>
+                <button class="menu-item" onclick="switchTab('shipping')">🚚 รายการจัดส่ง</button>
+            </nav>
+            <div class="sync-indicator">
+                <span class="dot pulse"></span> Realtime Active (30s)
+            </div>
+        </aside>
+
+        <main class="main-content">
+            <header class="top-header">
+                <h1 id="page-title">แดชบอร์ด</h1>
+                <button class="btn btn-primary" onclick="fetchAllData()">🔄 รีเฟรชข้อมูล</button>
+            </header>
+
+            <section id="tab-dashboard" class="tab-content active animate-fade-in">
+                <div style="margin-bottom: 20px; display: flex; gap: 15px; justify-content: center;">
+                    <button class="btn btn-primary" onclick="showDashboardList('stock')">📦 คลังวัตถุดิบ</button>
+                    <button class="btn btn-info" onclick="showDashboardList('purchase')">🛒 สั่งซื้อ</button>
+                    <button class="btn btn-warning" onclick="showDashboardList('shipping')">🚚 จัดส่ง</button>
+                </div>
+
+                <div id="dashboard-list-container" style="display: none; margin-bottom: 25px;"></div>
+
+                <div id="dashboard-default-view">
+                    <div class="card-grid">
+                        <div class="card bg-blue">
+                            <h3>สินค้าปกติ</h3>
+                            <p id="count-normal">0</p>
+                        </div>
+                        <div class="card bg-yellow">
+                            <h3>สินค้าใกล้หมด</h3>
+                            <p id="count-warning">0</p>
+                        </div>
+                        <div class="card bg-red">
+                            <h3>สินค้าหมด</h3>
+                            <p id="count-critical">0</p>
+                        </div>
+                        <div class="card bg-info">
+                            <h3>รายการสั่งซื้อ</h3>
+                            <p id="count-purchase">0</p>
+                        </div>
+                        <div class="card bg-purple">
+                            <h3>รายการจัดส่ง</h3>
+                            <p id="count-shipping">0</p>
+                        </div>
+                    </div>
+
+                    <div class="dashboard-layout">
+                        <div class="card chart-card">
+                            <h3>📊 สรุปจำนวนสินค้าแต่ละรายการ</h3>
+                            <canvas id="stockChart"></canvas>
+                        </div>
+                        
+                        <div class="card info-table-card">
+                            <h3>📋 สถานะคลังสินค้า (ปัจจุบัน)</h3>
+                            <div class="table-responsive" style="max-height: 350px; overflow-y: auto;">
+                                <table class="minimal-table" id="quick-stock-table">
+                                    <thead style="position: sticky; top: 0; background: #f8fafc; z-index: 1;">
+                                        <tr>
+                                            <th>สินค้า</th>
+                                            <th>จำนวน</th>
+                                            <th>สถานะ</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="tab-line" class="tab-content animate-fade-in">
+                <div class="card table-card">
+                    <h3>📱 รายการออเดอร์คอนเฟิร์มเข้าจาก LINE (รอการตรวจสอบและคัดแยก)</h3>
+                    <div class="table-responsive">
+                        <table id="table-line" class="main-table">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>วันที่</th>
+                                    <th>ข้อความดิบ / ชื่อรายการ</th>
+                                    <th>จำนวน</th>
+                                    <th>ราคา</th>
+                                    <th>ปลายทาง</th>
+                                    <th>สถานะ</th>
+                                    <th>จัดการ</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <section id="tab-stock" class="tab-content animate-fade-in">
+                <div class="card">
+                    <h3>➕ เพิ่มสินค้าใหม่</h3>
+                    <form id="form-stock" class="form-inline" onsubmit="handleFormSubmit(event, 'addStock')">
+                        <input type="text" id="stk-product" placeholder="ชื่อสินค้าทางการแพทย์" required>
+                        <input type="number" id="stk-qty" placeholder="จำนวน" required min="0">
+                        <input type="text" id="stk-unit" placeholder="หน่วย (เช่น กล่อง, ชิ้น)" required>
+                        <button type="submit" class="btn btn-success">บันทึก</button>
+                    </form>
+                </div>
+                <div class="card table-card">
+                    <h3>📦 ตารางรายการคลังสินค้า</h3>
+                    <div class="table-responsive">
+                        <table id="table-stock" class="main-table">
+                            <thead><tr><th>ID</th><th>ชื่อสินค้า</th><th>จำนวน</th><th>หน่วย</th><th>สถานะ</th><th>จัดการ</th></tr></thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <section id="tab-purchase" class="tab-content animate-fade-in">
+                <div class="card">
+                    <h3>➕ เพิ่มรายการสั่งซื้อ</h3>
+                    <form id="form-purchase" class="form-inline" onsubmit="handleFormSubmit(event, 'addPurchase')">
+                        <input type="date" id="pur-date" required>
+                        <input type="text" id="pur-product" placeholder="ชื่อสินค้าที่สั่งซื้อ" required>
+                        <select id="pur-status" required>
+                            <option value="ทำเบิก">ทำเบิก</option>
+                            <option value="รอโอน">รอโอน</option>
+                            <option value="จ่ายแล้ว">จ่ายแล้ว</option>
+                        </select>
+                        <button type="submit" class="btn btn-success">บันทึก</button>
+                    </form>
+                </div>
+                <div class="card table-card">
+                    <h3>🛒 ตารางรายการสั่งซื้อ</h3>
+                    <div class="table-responsive">
+                        <table id="table-purchase" class="main-table">
+                            <thead><tr><th>ID</th><th>วันที่</th><th>สินค้า</th><th>สถานะ</th><th>จัดการ</th></tr></thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <section id="tab-shipping" class="tab-content animate-fade-in">
+                <div class="card">
+                    <h3>➕ เพิ่มรายการจัดส่ง</h3>
+                    <form id="form-shipping" class="form-inline" onsubmit="handleFormSubmit(event, 'addShipping')">
+                        <input type="date" id="shp-date" required>
+                        <input type="text" id="shp-product" placeholder="สินค้าที่จะจัดส่ง" required>
+                        <input type="text" id="shp-company" placeholder="บริษัทขนส่ง" required>
+                        <input type="text" id="shp-destination" placeholder="ปลายทางจัดส่ง (โรงพยาบาล)" required>
+                        <select id="shp-status" required>
+                            <option value="เตรียมสินค้า">เตรียมสินค้า</option>
+                            <option value="กำลังจัดส่ง">กำลังจัดส่ง</option>
+                            <option value="จัดส่งเสร็จแล้ว">จัดส่งเสร็จแล้ว</option>
+                            <option value="ติดต่อลูกค้า">ติดต่อลูกค้า</option>
+                        </select>
+                        <button type="submit" class="btn btn-success">บันทึก</button>
+                    </form>
+                </div>
+                <div class="card table-card">
+                    <h3>🚚 ตารางรายการจัดส่ง</h3>
+                    <div class="table-responsive">
+                        <table id="table-shipping" class="main-table">
+                            <thead><tr><th>ID</th><th>วันที่</th><th>สินค้า</th><th>บริษัทขนส่ง</th><th>ปลายทาง</th><th>สถานะ</th><th>จัดการ</th></tr></thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <div id="line-modal" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>📱 จัดการคัดแยกออเดอร์จาก LINE</h2>
+                <button class="close-btn" onclick="closeLineModal()">&times;</button>
+            </div>
+            <form id="form-edit-line" onsubmit="saveLineOrderEdit(event)">
+                <input type="hidden" id="edit-line-id">
+                <div class="form-group">
+                    <label>วันที่รายการเข้า</label>
+                    <input type="date" id="edit-line-date" required>
+                </div>
+                <div class="form-group">
+                    <label>ชื่อรายการ / ข้อความสั่งซื้อจริงจาก LINE</label>
+                    <textarea id="edit-line-product" rows="3" style="width:100%; padding:10px; border:1px solid var(--border); border-radius:6px; outline:none; font-family:inherit;" required></textarea>
+                </div>
+                <div style="display:flex; gap:12px; margin-bottom:12px;">
+                    <div style="flex:1;">
+                        <label>จำนวน</label>
+                        <input type="number" id="edit-line-qty" placeholder="เช่น 10" min="0">
+                    </div>
+                    <div style="flex:1;">
+                        <label>หน่วย</label>
+                        <input type="text" id="edit-line-unit" placeholder="เช่น กล่อง, ถัง">
+                    </div>
+                </div>
+                <div style="display:flex; gap:12px; margin-bottom:12px;">
+                    <div style="flex:1;">
+                        <label>ราคารวม (บาท)</label>
+                        <input type="number" id="edit-line-price" placeholder="เช่น 4500" min="0">
+                    </div>
+                    <div style="flex:1;">
+                        <label>บริษัทขนส่ง</label>
+                        <input type="text" id="edit-line-company" placeholder="เช่น Flash, Kerry">
+                    </div>
+                </div>
+                <div class="form-group" style="margin-bottom:12px;">
+                    <label>ปลายทางจัดส่ง</label>
+                    <input type="text" id="edit-line-destination" placeholder="เช่น โรงพยาบาลศูนย์สกลนคร" style="width:100%;">
+                </div>
+                <div class="form-group" style="margin-bottom:20px;">
+                    <label>สถานะรายการ</label>
+                    <select id="edit-line-status" style="width:100%;" required>
+                        <option value="ออเดอร์ใหม่">🟢 ออเดอร์ใหม่</option>
+                        <option value="รอระบุข้อมูล">🟡 รอระบุข้อมูล</option>
+                        <option value="ยืนยันออเดอร์">🔵 ยืนยันออเดอร์</option>
+                        <option value="ยกเลิกออเดอร์">🔴 ยกเลิกออเดอร์</option>
+                    </select>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-danger" onclick="closeLineModal()">ยกเลิก</button>
+                    <button type="submit" class="btn btn-success">💾 บันทึกอัปเดตข้อมูล</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

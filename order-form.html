@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+   <meta charset="UTF-8">
+   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+   <title>MEDICHEN - ฟอร์มสั่งซื้อสินค้า</title>
+   <!-- โหลด LIFF SDK -->
+   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+   <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600&display=swap" rel="stylesheet">
+   <style>
+       :root {
+           --primary: #0284c7;
+           --primary-hover: #0369a1;
+           --bg-color: #f8fafc;
+           --surface: #ffffff;
+           --text-main: #334155;
+           --text-muted: #64748b;
+           --border: #e2e8f0;
+           --success: #10b981;
+       }
+
+
+       * {
+           box-sizing: border-box;
+           margin: 0;
+           padding: 0;
+           font-family: 'Prompt', sans-serif;
+       }
+
+
+       body {
+           background-color: var(--bg-color);
+           color: var(--text-main);
+           padding: 16px;
+       }
+
+
+       .header {
+           text-align: center;
+           margin-bottom: 24px;
+           padding-top: 20px;
+       }
+
+
+       .header h2 {
+           color: var(--primary);
+           font-weight: 600;
+       }
+
+
+       .header p {
+           font-size: 14px;
+           color: var(--text-muted);
+       }
+
+
+       /* Profile Section */
+       #profile-section {
+           display: none;
+           align-items: center;
+           background: var(--surface);
+           padding: 12px 16px;
+           border-radius: 12px;
+           box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+           margin-bottom: 20px;
+           border: 1px solid var(--border);
+       }
+
+
+       #profile-img {
+           width: 45px;
+           height: 45px;
+           border-radius: 50%;
+           margin-right: 12px;
+           object-fit: cover;
+       }
+
+
+       #profile-name {
+           font-weight: 500;
+           font-size: 15px;
+       }
+
+
+       /* Form Card */
+       .form-card {
+           background: var(--surface);
+           padding: 24px 20px;
+           border-radius: 16px;
+           box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+           border: 1px solid var(--border);
+       }
+
+
+       .form-group {
+           margin-bottom: 16px;
+       }
+
+
+       .form-group label {
+           display: block;
+           font-size: 14px;
+           font-weight: 500;
+           margin-bottom: 8px;
+           color: var(--text-main);
+       }
+
+
+       .form-control {
+           width: 100%;
+           padding: 12px 14px;
+           border: 1px solid var(--border);
+           border-radius: 8px;
+           font-size: 15px;
+           background-color: var(--bg-color);
+           outline: none;
+           transition: all 0.2s;
+       }
+
+
+       .form-control:focus {
+           border-color: var(--primary);
+           background-color: var(--surface);
+           box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.1);
+       }
+
+
+       .row {
+           display: flex;
+           gap: 12px;
+       }
+
+
+       .col {
+           flex: 1;
+       }
+
+
+       .btn-submit {
+           width: 100%;
+           padding: 14px;
+           background-color: var(--primary);
+           color: white;
+           border: none;
+           border-radius: 8px;
+           font-size: 16px;
+           font-weight: 600;
+           cursor: pointer;
+           margin-top: 10px;
+           transition: background 0.2s;
+       }
+
+
+       .btn-submit:hover {
+           background-color: var(--primary-hover);
+       }
+
+
+       .btn-submit:disabled {
+           background-color: #cbd5e1;
+           cursor: not-allowed;
+       }
+
+
+       /* Loading Overlay */
+       #loading-overlay {
+           position: fixed;
+           top: 0; left: 0; width: 100%; height: 100%;
+           background: rgba(255,255,255,0.8);
+           display: none;
+           justify-content: center;
+           align-items: center;
+           flex-direction: column;
+           z-index: 1000;
+       }
+
+
+       .spinner {
+           width: 40px; height: 40px;
+           border: 4px solid var(--border);
+           border-top: 4px solid var(--primary);
+           border-radius: 50%;
+           animation: spin 1s linear infinite;
+           margin-bottom: 16px;
+       }
+
+
+       @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+   </style>
+</head>
+<body>
+
+
+   <div class="header">
+       <h2>MEDICHEN</h2>
+       <p>ระบบสั่งซื้อสินค้าทางการแพทย์</p>
+   </div>
+
+
+   <!-- ส่วนแสดงโปรไฟล์ผู้ใช้ (ดึงจาก LINE อัตโนมัติ) -->
+   <div id="profile-section">
+       <img id="profile-img" src="https://via.placeholder.com/45" alt="Profile">
+       <div>
+           <div style="font-size: 12px; color: var(--text-muted);">สั่งซื้อในนาม</div>
+           <div id="profile-name">กำลังโหลดข้อมูล...</div>
+       </div>
+   </div>
+
+
+   <div class="form-card">
+       <form id="order-form">
+           <div class="form-group">
+               <label>ชื่อสินค้า / รายละเอียดที่ต้องการสั่ง</label>
+               <input type="text" id="product" class="form-control" placeholder="เช่น ถุงมือแพทย์ Size M" required>
+           </div>
+          
+           <div class="row">
+               <div class="form-group col">
+                   <label>จำนวน</label>
+                   <input type="number" id="qty" class="form-control" placeholder="เช่น 10" min="1" required>
+               </div>
+               <div class="form-group col">
+                   <label>หน่วย</label>
+                   <input type="text" id="unit" class="form-control" placeholder="เช่น กล่อง" required>
+               </div>
+           </div>
+
+
+           <div class="form-group">
+               <label>ราคารวม (บาท) - ปล่อยว่างได้ถ้าไม่ทราบ</label>
+               <input type="number" id="price" class="form-control" placeholder="0">
+           </div>
+
+
+           <div class="form-group">
+               <label>ปลายทางจัดส่ง (ชื่อ รพ. หรือ ที่อยู่)</label>
+               <textarea id="destination" class="form-control" rows="3" placeholder="กรอกที่อยู่จัดส่งให้ชัดเจน..." required></textarea>
+           </div>
+
+
+           <button type="submit" class="btn-submit" id="submit-btn">ยืนยันการสั่งซื้อ</button>
+       </form>
+   </div>
+
+
+   <div id="loading-overlay">
+       <div class="spinner"></div>
+       <div style="color: var(--primary); font-weight: 500;">กำลังส่งออเดอร์ของคุณ...</div>
+   </div>
+
+
+   <script>
+       // 🔴 นำ LIFF ID จาก LINE Developers มาใส่ตรงนี้
+       const LIFF_ID = "YOUR_LIFF_ID_HERE";
+      
+       // 🔴 นำ URL Google Apps Script เดิมมาใส่ตรงนี้
+       const API_URL = "https://script.google.com/macros/s/AKfycbzUSfC0UMS1rLJTpVBbL1koAKUkHZcLIlQvLz98J2UzSwFUo-2sdqckWaiXNoEGgWJd/exec";
+      
+       let userName = "ลูกค้า (ไม่ได้ล็อกอิน LINE)";
+
+
+       // 1. Initialize LIFF
+       async function initializeLiff() {
+           try {
+               await liff.init({ liffId: LIFF_ID });
+               if (liff.isLoggedIn()) {
+                   const profile = await liff.getProfile();
+                   userName = profile.displayName;
+                   document.getElementById('profile-img').src = profile.pictureUrl;
+                   document.getElementById('profile-name').innerText = profile.displayName;
+                   document.getElementById('profile-section').style.display = 'flex';
+               }
+           } catch (err) {
+               console.error("LIFF Initialization failed", err);
+           }
+       }
+
+
+       initializeLiff();
+
+
+       // 2. จัดการเมื่อกดปุ่ม Submit
+       document.getElementById('order-form').addEventListener('submit', async (e) => {
+           e.preventDefault();
+          
+           const btn = document.getElementById('submit-btn');
+           const overlay = document.getElementById('loading-overlay');
+          
+           btn.disabled = true;
+           overlay.style.display = 'flex';
+
+
+           // เตรียมข้อมูลส่งไปที่ Apps Script
+           const payload = {
+               action: 'addFormOrder',
+               data: {
+                   product: document.getElementById('product').value,
+                   qty: document.getElementById('qty').value,
+                   unit: document.getElementById('unit').value,
+                   price: document.getElementById('price').value || 0,
+                   company: document.getElementById('company').value,
+                   destination: document.getElementById('destination').value,
+                   customerName: userName, // ส่งชื่อ LINE ลูกค้าพ่วงไปด้วย
+                   status: 'ออเดอร์ใหม่'
+               }
+           };
+
+
+           try {
+               const response = await fetch(API_URL, {
+                   method: "POST",
+                   mode: "cors",
+                   headers: { "Content-Type": "text/plain" },
+                   body: JSON.stringify(payload)
+               });
+              
+               const result = await response.json();
+              
+               if(result.status === 'success') {
+                   // ปิด Loading
+                   overlay.style.display = 'none';
+                  
+                   // สั่งให้ LIFF ส่งข้อความเข้าแชทลูกค้า (เพื่อให้แอดมินเห็นในระบบแชทด้วย)
+                   if (liff.isLoggedIn() && liff.isInClient()) {
+                       await liff.sendMessages([{
+                           type: "text",
+                           text: `📝 ส่งคำสั่งซื้อสำเร็จ!\nรายการ: ${payload.data.product}\nจำนวน: ${payload.data.qty} ${payload.data.unit}`
+                       }]);
+                       // ปิดหน้าต่าง LIFF ทันทีที่ส่งเสร็จ
+                       liff.closeWindow();
+                   } else {
+                       alert("การสั่งซื้อสำเร็จ ระบบได้รับข้อมูลของคุณแล้ว");
+                       window.location.reload();
+                   }
+               } else {
+                   throw new Error(result.message);
+               }
+           } catch (error) {
+               overlay.style.display = 'none';
+               btn.disabled = false;
+               alert("เกิดข้อผิดพลาดในการส่งข้อมูล: " + error.message);
+           }
+       });
+   </script>
+</body>
+</html>
+
